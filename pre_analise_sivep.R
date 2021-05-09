@@ -111,7 +111,7 @@ obitos_sivep_idade$OBES_IMC <- NULL
 
 ##Exlusão obitos de pessoas não residentes no Brasil ## 
 obitos_sivep_brasil <- subset(obitos_sivep_idade, 
-                             obitos_sivep_idade$ID_PAIS == "BRASIL")
+                              obitos_sivep_idade$ID_PAIS == "BRASIL")
 
 # Analise dos obitos por municipio de residencia
 obitos_sivep_brasil$CASO <- 1
@@ -124,7 +124,7 @@ obitos_municipio <- obitos_sivep_brasil %>%
 
 ### ZONA ###
 obitos_municipio_zona <- obitos_sivep_brasil %>%
-group_by(CS_ZONA)%>%
+  group_by(CS_ZONA)%>%
   summarise(OBITOS_ZONA = sum(CASO, na.rm = T))%>%
   arrange(OBITOS_ZONA)
 
@@ -136,13 +136,13 @@ obitos_estado <- obitos_sivep_brasil %>%
 
 ## Obitos em capítais ###
 obitos_capitais_brasil <- subset (obitos_sivep_brasil, obitos_sivep_brasil$ID_MN_RESI
-                           %in% c("RIO BRANCO","MACAPA", "MANAUS", "BELEM",
-                                  "PORTO VELHO","BOA VISTA", "PALMAS",
-                                  "SALVADOR", "FORTALEZA", "MACEIO", "SAO LUIS",
-                                  "JOAO PESSOA", "RECIFE", "TERESINA", "NATAL", "ARACAJU",
-                                  "GOIANIA", "CUIABA", "CAMPO GRANDE", "BRASILIA",
-                                  "VITORIA", "BELO HORIZONTE", "RIO DE JANEIRO", "SAO PAULO",
-                                  "CURITIBA", "FLORIANOPOLIS","PORTO ALEGRE"))
+                                  %in% c("RIO BRANCO","MACAPA", "MANAUS", "BELEM",
+                                         "PORTO VELHO","BOA VISTA", "PALMAS",
+                                         "SALVADOR", "FORTALEZA", "MACEIO", "SAO LUIS",
+                                         "JOAO PESSOA", "RECIFE", "TERESINA", "NATAL", "ARACAJU",
+                                         "GOIANIA", "CUIABA", "CAMPO GRANDE", "BRASILIA",
+                                         "VITORIA", "BELO HORIZONTE", "RIO DE JANEIRO", "SAO PAULO",
+                                         "CURITIBA", "FLORIANOPOLIS","PORTO ALEGRE"))
 
 obitos_capitais <- obitos_capitais_brasil %>%
   group_by(ID_MN_RESI)%>%
