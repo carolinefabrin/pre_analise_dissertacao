@@ -4,22 +4,29 @@ library(dplyr)
 library(ggplot2)
 library(readxl)
 
-Obitos_Estado <- read_excel("bases/Obitos Estado.xlsx")
+sivep_obitos <- fread("bases/INFLUD-26-04-2021.csv")
 
+head(sivep_obitos)
+
+Obitos_Estado <- read_excel("bases/Obitos Estado.xlsx")
 
 obitos_td_capitais <- read_excel("bases/obitos_td_capitais.xlsx")
 
-
 obitos_cca_estado <- read_excel("bases/obitos_cca_estado.xlsx")
-
 
 obitos_cca_capitais <- read_excel("bases/obitos_cca_capitais.xlsx")
 
 raca_td <- read_excel("bases/raca_td.xlsx")
 
-sivep_obitos <- fread("bases/INFLUD-26-04-2021.csv")
+base_raca_srag <- read_excel("bases/base_raca_srag.xlsx")
 
-head(sivep_obitos)
+base_estados_srag_0_19 <- read_excel("bases/base_estados_srag_0-19.xlsx")
+
+base_capitais_srag_0_19 <- read_excel("bases/base_capitais_srag_0-19.xlsx")
+
+base_estado_srag_cca <- read_excel("bases/base_estado_srag_cca.xlsx")
+
+base_capitais_srag_cca <- read_excel("bases/base_capitais_srag_cca.xlsx")
 
 
 ################# Base de Obitos ############### (Incluso 2-Óbito)
@@ -507,8 +514,410 @@ write.csv(obitos_cca_capitais, "obitos_cca_capitais.csv", row.names = F)
 
 
 
+########### ANALISE COM DESFECHO (4-SRAG não especificado 5-SRAG por COVID-19)
+
+### 0-19 anos ###
+obitos_srag <- subset(obitos_sivep_brasil, obitos_sivep_brasil$CLASSI_FIN
+                      %in% c(4,5))
+obitos_srag$CASO <-1
+sum (obitos_srag$CASO) #### TOTAL DE OBITOS ###
+
+############ Analise dos obitos por municipio de residencia ################
+obitos_municipio_srag <- obitos_srag %>%
+  group_by(ID_MN_RESI, SG_UF, CS_ZONA) %>%
+  summarise(OBITOS_MUNICIPIO = sum(CASO, na.rm = T)) %>%
+  arrange(OBITOS_MUNICIPIO)
+
+################ ZONA DE RESIDENCIA ##############
+obitos_municipio_srag_zona <- obitos_srag %>%
+  group_by(CS_ZONA)%>%
+  summarise(OBITOS_ZONA = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_ZONA)
 
 
+############ ANALISE POR SEXO  ############# 
+obitos_sexo_srag <- obitos_srag %>%
+  group_by(CS_SEXO)%>%
+  summarise(OBITOS_SEXO = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_SEXO)
+
+
+
+########## ANALISE RAÇA ##################
+obitos_raca_srag <- obitos_srag %>%
+  group_by(CS_RACA)%>%
+  summarise(OBITOS_RACA = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_RACA)
+
+# DADOS EM CSV
+write.csv(obitos_raca_srag, "obitos_raca_srag.csv", row.names = F)
+
+obitos_raca_srag <- obitos_raca_srag[!is.na(obitos_raca_srag$CS_RACA),]
+com_dados_sobre <- sum(!is.na(obitos_srag$CS_RACA))
+com_dados_sobre
+sem_dados_sobre <- sum(is.na(obitos_srag$CS_RACA))
+sem_dados_sobre
+sem_dados_sobre/(com_dados_sobre+sem_dados_sobre)*100
+
+##GRAFICO RAÇA SRAG ###
+#POPULACAO_2020 = TOTAL DA POPULACAO DE 0-19 anos
+base_raca_srag$TAXA_MORTALIDADE <- base_raca_srag$OBITOS*100 / base_raca_srag$POPULACAO_2020
+
+ggplot(base_raca_srag, aes(x = RACA, y = TAXA_MORTALIDADE*100, fill=RACA ))+
+  geom_col()+
+  theme_bw()+
+  xlab("População 0-19 anos")+
+  ylab("Taxa Mortalidade") +
+  labs(fill="Raça") 
+
+
+########### ANALISE FATOR DE RISCO ########### 
+obitos_fator_risco_srag <- obitos_srag %>%
+  group_by(FATOR_RISC)%>%
+  summarise(OBITOS_FATOR_RISC = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_FATOR_RISC)
+
+
+########### COMORBIDADES #############
+
+obitos_comorb_srag <- obitos_srag %>%
+  dplyr::select("CASO",
+                "CARDIOPATI",
+                "HEMATOLOGI",
+                "SIND_DOWN",
+                "HEPATICA",
+                "ASMA",
+                "DIABETES",
+                "NEUROLOGIC",
+                "PNEUMOPATI",
+                "IMUNODEPRE",
+                "RENAL",
+                "OBESIDADE", 
+                "OUT_MORBI")
+
+
+obitos_comorb_srag <- melt(obitos_comorb_srag, id.vars = "CASO")
+
+obitos_comorb_srag <- obitos_comorb_srag %>%
+  group_by(variable, value) %>%
+  summarise("QUANTIDADE" = sum(CASO,na.rm = T))
+
+obitos_comorb_srag$value <- as.factor(obitos_comorb_srag$value)
+
+obitos_comorb_srag <- dcast(formula = variable ~ value, value.var =  "QUANTIDADE", obitos_comorb_srag)
+
+names(obitos_comorb_srag) <- c("AGRAVO", "SIM", "NÃO", "IGNORADO", "SEM_DADOS")
+
+# DADOS EM CSV
+write.csv(obitos_comorb_srag, "obitos_comorb_srag.csv", row.names = F)
+
+
+
+########################## OBITOS POR ESTADO SRAG 0-19anos #################################
+
+obitos_estado_srag <- obitos_srag %>%
+  group_by(SG_UF)%>%
+  summarise(OBITOS_ESTADO = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_ESTADO)
+
+#GRAFICO ESTADO SRAG#
+ggplot(obitos_estado_srag, aes(x = SG_UF, y = OBITOS_ESTADO, 
+  color= cut(OBITOS_ESTADO, breaks = c(0, 100, 200, 300, Inf)))) +
+  geom_col()+
+  theme(legend.position = "none")+
+  xlab("Estados")+
+  ylab("Obitos")+
+  scale_color_manual(values = c('green', 'yellow', 'red', 'black'),
+                     limits = c('(0,100]', '(100,200]', '(200,300]','(300,Inf]'))
+
+#DADOE EM CSV#
+write.csv(obitos_estado_srag, "obitos_estado_srag.csv", row.names = F)
+
+
+######### GRAFICO TAXA DE MORTALIDADE EM ESTADOS SRAG 0-19anos ########### 
+
+#GRAFICO SRAG#
+base_estados_srag_0_19$TAXA_MORTALIDADE <- base_estados_srag_0_19$OBITOS_ESTADO *100 / base_estados_srag_0_19$`POPULACAO_ 2020`
+
+ggplot(base_estados_srag_0_19, aes(x = UF, y = TAXA_MORTALIDADE*100, 
+  fill= cut(TAXA_MORTALIDADE*100, breaks = c(0, 0.5, 0.6, Inf)))) +
+  geom_col()+
+  theme(legend.position = "none")+
+  xlab("Estados")+
+  ylab("Taxa Mortalidade")+
+  scale_fill_manual(values = c('lightblue2', 'lightblue3', 'lightblue4'),
+  limits = c('(0,0.5]', '(0.5,0.6]', '(0.6,Inf]'))
+
+
+
+
+####################### OBITOS EM CAPITAIS SRAG 0-19 anos ######################
+
+obitos_capitais_srag <- subset (obitos_srag, obitos_srag$ID_MN_RESI
+                                  %in% c("RIO BRANCO","MACAPA", "MANAUS", "BELEM",
+                                         "PORTO VELHO","BOA VISTA", "PALMAS",
+                                         "SALVADOR", "FORTALEZA", "MACEIO", "SAO LUIS",
+                                         "JOAO PESSOA", "RECIFE", "TERESINA", "NATAL", "ARACAJU",
+                                         "GOIANIA", "CUIABA", "CAMPO GRANDE", "BRASILIA",
+                                         "VITORIA", "BELO HORIZONTE", "RIO DE JANEIRO", "SAO PAULO",
+                                         "CURITIBA", "FLORIANOPOLIS","PORTO ALEGRE"))
+
+obitos_cap_srag <- obitos_capitais_srag %>%
+  group_by(ID_MN_RESI)%>%
+  summarise(OBITOS_CAPITAIS = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_CAPITAIS)
+
+
+#GRAFICO#
+ggplot(obitos_cap_srag, aes(x = ID_MN_RESI, y = OBITOS_CAPITAIS, 
+  color= cut(OBITOS_CAPITAIS, breaks = c(0, 25, 50, 75, Inf)))) +
+  geom_col()+
+  coord_flip()+ 
+  theme(legend.position = "none")+
+  xlab("Capitais")+
+  ylab("Obitos")+
+  scale_color_manual(values = c('green', 'yellow', 'red', 'black'),
+                     limits = c('(0,25]', '(25,50]', '(50,75]','(75,Inf]'))
+
+
+#Dados em csv#
+write.csv(obitos_cap_srag, "obitos_cap_srag.csv", row.names = F)
+
+
+###### GRAFICO TAXA DE MORTALIDADE CAPITAIS SRAG 0-19 anos ######### 
+base_capitais_srag_0_19$TAXA_MORTALIDADE <- base_capitais_srag_0_19$OBITOS_CAPITAIS *100 / base_capitais_srag_0_19$POPULACAO_2020
+
+ggplot(base_capitais_srag_0_19, aes(x = CAPITAL, y = TAXA_MORTALIDADE*100, 
+  fill= cut(TAXA_MORTALIDADE*100, breaks = c(0, 0.5, 0.6, Inf)))) +
+  geom_col()+
+  coord_flip()+ 
+  theme(legend.position = "none")+
+  xlab("Capitais")+
+  ylab("Taxa Mortalidade")+
+  scale_fill_manual(values = c('lightblue2', 'lightblue3', 'lightblue4'),
+                    limits = c('(0,0.5]', '(0.5,0.6]', '(0.6,Inf]'))
+
+
+
+################################# 0-5 anos SRAG #################################
+
+obitos_srag_cca <- subset(obitos_sivep_crianca, obitos_sivep_crianca$CLASSI_FIN
+                          %in% c(4,5))
+
+obitos_srag_cca$CASO <-1
+sum (obitos_srag_cca$CASO)
+
+
+############ Analise dos obitos por municipio de residencia ################
+obitos_municipio_srag_cca <- obitos_srag_cca %>%
+  group_by(ID_MN_RESI, SG_UF, CS_ZONA) %>%
+  summarise(OBITOS_MUNICIPIO = sum(CASO, na.rm = T)) %>%
+  arrange(OBITOS_MUNICIPIO)
+
+################ ZONA DE RESIDENCIA ##############
+obitos_municipio_srag_zona_cca <- obitos_srag_cca %>%
+  group_by(CS_ZONA)%>%
+  summarise(OBITOS_ZONA = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_ZONA)
+
+
+############ ANALISE POR SEXO  ############# 
+obitos_sexo_srag_cca <- obitos_srag_cca %>%
+  group_by(CS_SEXO)%>%
+  summarise(OBITOS_SEXO = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_SEXO)
+
+
+
+########## ANALISE RAÇA ##################
+obitos_raca_srag_cca <- obitos_srag_cca %>%
+  group_by(CS_RACA)%>%
+  summarise(OBITOS_RACA = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_RACA)
+
+# DADOS EM CSV
+write.csv(obitos_raca_srag_cca, "obitos_raca_srag_cca.csv", row.names = F)
+
+obitos_raca_srag_cca <- obitos_raca_srag_cca[!is.na(obitos_raca_srag_cca$CS_RACA),]
+com_dados_sobre <- sum(!is.na(obitos_srag_cca$CS_RACA))
+com_dados_sobre
+sem_dados_sobre <- sum(is.na(obitos_srag_cca$CS_RACA))
+sem_dados_sobre
+sem_dados_sobre/(com_dados_sobre+sem_dados_sobre)*100
+
+##GRAFICO RAÇA SRAG ###
+
+
+########### ANALISE FATOR DE RISCO ########### 
+obitos_fator_risco_srag_cca <- obitos_srag_cca %>%
+  group_by(FATOR_RISC)%>%
+  summarise(OBITOS_FATOR_RISC = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_FATOR_RISC)
+
+
+########### COMORBIDADES #############
+
+obitos_comorb_srag_cca <- obitos_srag_cca %>%
+  dplyr::select("CASO",
+                "CARDIOPATI",
+                "HEMATOLOGI",
+                "SIND_DOWN",
+                "HEPATICA",
+                "ASMA",
+                "DIABETES",
+                "NEUROLOGIC",
+                "PNEUMOPATI",
+                "IMUNODEPRE",
+                "RENAL",
+                "OBESIDADE", 
+                "OUT_MORBI")
+
+
+obitos_comorb_srag_cca <- melt(obitos_comorb_srag_cca, id.vars = "CASO")
+
+obitos_comorb_srag_cca <- obitos_comorb_srag_cca %>%
+  group_by(variable, value) %>%
+  summarise("QUANTIDADE" = sum(CASO,na.rm = T))
+
+obitos_comorb_srag_cca$value <- as.factor(obitos_comorb_srag_cca$value)
+
+obitos_comorb_srag_cca <- dcast(formula = variable ~ value, value.var =  "QUANTIDADE", obitos_comorb_srag_cca)
+
+names(obitos_comorb_srag_cca) <- c("AGRAVO", "SIM", "NÃO", "IGNORADO", "SEM_DADOS")
+
+# DADOS EM CSV
+write.csv(obitos_comorb_srag_cca, "obitos_comorb_srag_cca.csv", row.names = F)
+
+
+
+########################## OBITOS POR ESTADO SRAG 0-5 anos #################################
+obitos_estado_srag_cca <- obitos_srag_cca %>%
+  group_by(SG_UF)%>%
+  summarise(OBITOS_ESTADO = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_ESTADO)
+
+#GRAFICO#
+ggplot(obitos_estado_srag_cca, aes(x = SG_UF, y = OBITOS_ESTADO, 
+  color= cut(OBITOS_ESTADO, breaks = c(0, 50, 100, 150, Inf)))) +
+  geom_col()+
+  theme(legend.position = "none")+
+  xlab("Estados")+
+  ylab("Obitos")+
+  scale_color_manual(values = c('green', 'yellow', 'red', 'black'),
+                     limits = c('(0,50]', '(50,100]', '(100,150]','(150,Inf]'))
+
+#DADOE EM CSV#
+write.csv(obitos_estado_srag_cca, "obitos_estado_srag_cca.csv", row.names = F)
+
+
+####### GRAFICO TAXA DE MORTALIDADE POR ESTADOS 0-5 anos ###### 
+#Obs.: Populacao_1 = pop. de -0-3anos ; Populacao_2 = pop. de 4-5anos
+base_estado_srag_cca$POPULACAO_2020 <- base_estado_srag_cca$POPULACAO_1 + base_estado_srag_cca$POPULACAO_2
+base_estado_srag_cca$TAXA_MORTALIDADE <- base_estado_srag_cca$OBITOS_ESTADO*100 / base_estado_srag_cca$POPULACAO_2020
+
+#GRAFICO#
+ggplot(base_estado_srag_cca, aes(x = UF, y = TAXA_MORTALIDADE*100, 
+  fill= cut(TAXA_MORTALIDADE*100, breaks = c(0, 0.8, 1.3, Inf)))) +
+  geom_col()+
+  theme(legend.position = "none")+
+  xlab("Estados")+
+  ylab("Taxa Mortalidade")+
+  scale_fill_manual(values = c('lightblue2', 'lightblue3', 'lightblue4'),
+                    limits = c('(0,0.8]', '(0.8,1.3]', '(1.3,Inf]'))
+
+#DADOE EM CSV#
+write.csv(base_estado_srag_cca, "base_estado_srag_cca.csv", row.names = F)
+
+
+##############  OBITOS EM CAPITAIS SRAG 0-5 anos ##############
+
+obitos_capitais_srag_cca <- subset (obitos_srag_cca, obitos_srag_cca$ID_MN_RESI
+                               %in% c("RIO BRANCO","MACAPA", "MANAUS", "BELEM",
+                                      "PORTO VELHO","BOA VISTA", "PALMAS",
+                                      "SALVADOR", "FORTALEZA", "MACEIO", "SAO LUIS",
+                                      "JOAO PESSOA", "RECIFE", "TERESINA", "NATAL", "ARACAJU",
+                                      "GOIANIA", "CUIABA", "CAMPO GRANDE", "BRASILIA",
+                                      "VITORIA", "BELO HORIZONTE", "RIO DE JANEIRO", "SAO PAULO",
+                                      "CURITIBA", "FLORIANOPOLIS","PORTO ALEGRE"))
+
+obitos_cap_srag_cca <- obitos_capitais_srag_cca %>%
+  group_by(ID_MN_RESI)%>%
+  summarise(OBITOS_CAPITAIS = sum(CASO, na.rm = T))%>%
+  arrange(OBITOS_CAPITAIS)
+
+
+#GRAFICO#
+ggplot(obitos_cap_srag_cca, aes(x = ID_MN_RESI, y = OBITOS_CAPITAIS, 
+  color= cut(OBITOS_CAPITAIS, breaks = c(0, 25, 50, 75, Inf)))) +
+  geom_col()+
+  coord_flip()+ 
+  theme(legend.position = "none")+
+  xlab("Capitais")+
+  ylab("Obitos")+
+  scale_color_manual(values = c('green', 'yellow', 'red', 'black'),
+                     limits = c('(0,25]', '(25,50]', '(50,75]','(75,Inf]'))
+
+
+#Dados em csv#
+write.csv(obitos_cap_srag_cca, "obitos_cap_srag_cca.csv", row.names = F)
+
+
+
+####### GRAFICO TAXA DE MORTALIDADE CAPITAIS SRAG 0-5 anos ###### 
+#Obs.: Populacao_1 = pop. de -0-3anos ; Populacao_2 = pop. de 4-5anos
+base_capitais_srag_cca$POPULACAO_2020 <- base_capitais_srag_cca$POPULACAO_1 + base_capitais_srag_cca$POPULACAO_2
+base_capitais_srag_cca$TAXA_MORTALIDADE <- base_capitais_srag_cca$OBITOS*100 / base_capitais_srag_cca$POPULACAO_2020
+
+
+#Grafico#
+ggplot(base_capitais_srag_cca, aes(x = CAPITAL, y = TAXA_MORTALIDADE*100, 
+  fill= cut(TAXA_MORTALIDADE*100, breaks = c(0, 1.5, 2, Inf)))) +
+  geom_col()+
+  coord_flip()+ 
+  theme(legend.position = "none")+
+  xlab("Capitais")+
+  ylab("Taxa Mortalidade")+
+  scale_fill_manual(values = c('lightblue2', 'lightblue3', 'lightblue4'),
+                    limits = c('(0,1.5]', '(1.5,2]', '(2,Inf]'))
+
+
+#Dados em csv#
+write.csv(base_capitais_srag_cca, "base_capitais_srag_cca.csv", row.names = F)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+########### ANALISE COM DESFECHO (5-SRAG por COVID-19)
+
+### 0-19 anos ###
+obitos_srag_covid <- subset(obitos_sivep_brasil, obitos_sivep_brasil$CLASSI_FIN
+                      == 5)
+obitos_srag_covid$CASO <-1
+sum (obitos_srag_covid$CASO)
+
+### 0-5 anos ###
+obitos_srag_covid_cca <- subset(obitos_sivep_crianca, obitos_sivep_crianca$CLASSI_FIN
+                          == 5)
+
+obitos_srag_covid_cca$CASO <-1
+sum (obitos_srag_covid_cca$CASO)
 
 
 
